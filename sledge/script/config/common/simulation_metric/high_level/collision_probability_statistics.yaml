@@ -1,0 +1,14 @@
+collision_probability_statistics:
+  _target_: nuplan.planning.metrics.evaluation_metrics.common.collision_probability_metric.CollisionProbabilityStatistics
+  _convert_: 'all'
+  name: 'collision_probability_statistics'
+  category: 'Risk'
+  metric_score_unit: 'probability'
+  time_step_size: 0.1
+  time_horizon: 10.0
+  least_min_ttc: 1.0
+  lateral_safety_margin: 0.5
+  
+  required_metrics:
+    ego_lane_change_metric: ego_lane_change_statistics
+    no_ego_at_fault_collisions_metric: no_ego_at_fault_collisions_statistics 

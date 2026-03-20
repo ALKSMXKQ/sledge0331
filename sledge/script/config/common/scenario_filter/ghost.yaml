@@ -1,0 +1,96 @@
+_target_: nuplan.planning.scenario_builder.scenario_filter.ScenarioFilter
+_convert_: 'all'
+
+scenario_types: 
+  # --- KNOWN-SAFE (22) ---
+  - near_pedestrian_at_pickup_dropoff
+  - near_barrier_on_driveable
+  - on_pickup_dropoff
+  - near_long_vehicle
+  - starting_protected_noncross_turn
+  - high_lateral_acceleration
+  - starting_right_turn
+  - near_pedestrian_on_crosswalk
+  - starting_left_turn
+  - on_all_way_stop_intersection
+  - on_stopline_traffic_light
+  - following_lane_with_slow_lead
+  - starting_protected_cross_turn
+  - low_magnitude_speed
+  - on_stopline_crosswalk
+  - stationary
+  - stationary_in_traffic
+  - on_carpark
+  - stationary_at_traffic_light_without_lead
+  - on_stopline_stop_sign
+  - behind_long_vehicle
+  - stationary_at_traffic_light_with_lead
+  # --- KNOWN-UNSAFE (13) ---
+  - near_high_speed_vehicle
+  - traversing_traffic_light_intersection
+  - high_magnitude_speed
+  - traversing_intersection
+  - on_traffic_light_intersection
+  - near_trafficcone_on_driveable
+  - near_construction_zone_sign
+  - on_intersection
+  - near_multiple_vehicles
+  - traversing_pickup_dropoff
+  - traversing_crosswalk
+  - medium_magnitude_speed
+  - following_lane_without_lead
+  # --- UNKNOWN-SAFE (23) ---
+  - behind_pedestrian_on_pickup_dropoff
+  - starting_unprotected_cross_turn
+  - crossed_by_vehicle
+  - accelerating_at_traffic_light_with_lead
+  - stationary_at_crosswalk
+  - accelerating_at_traffic_light
+  - starting_unprotected_noncross_turn
+  - accelerating_at_traffic_light_without_lead
+  - traversing_narrow_lane
+  - high_magnitude_jerk
+  - waiting_for_pedestrian_to_cross
+  - starting_low_speed_turn
+  - stopping_at_traffic_light_without_lead
+  - stopping_with_lead
+  - accelerating_at_crosswalk
+  - stopping_at_stop_sign_with_lead
+  - stopping_at_traffic_light_with_lead
+  - stopping_at_crosswalk
+  - accelerating_at_stop_sign
+  - stopping_at_stop_sign_without_lead
+  - accelerating_at_stop_sign_no_crosswalk
+  - crossed_by_bike
+  - starting_u_turn
+  # --- UNKNOWN-UNSAFE (12) ---
+  - near_pedestrian_on_crosswalk_with_ego
+  - starting_straight_traffic_light_intersection_traversal
+  - changing_lane_to_right
+  - changing_lane
+  - near_multiple_pedestrians
+  - changing_lane_with_trail
+  - starting_high_speed_turn
+  - following_lane_with_lead
+  - behind_bike
+  - starting_straight_stop_sign_intersection_traversal
+  - behind_pedestrian_on_driveable
+  - changing_lane_to_left
+  # --- GHOST ---
+  - ghost
+scenario_tokens: null
+
+log_names: null
+map_names: null                         # Filter scenarios by map names
+
+num_scenarios_per_type: 50          # Number of scenarios per type
+limit_total_scenarios: null       # Limit total scenarios 
+timestamp_threshold_s: null         # Filter scenarios to ensure scenarios have more than `timestamp_threshold_s` seconds 
+ego_displacement_minimum_m: null    # Whether to remove scenarios where the ego moves less than a certain amount
+ego_start_speed_threshold: null     # Limit to scenarios where the ego reaches a certain speed from below
+ego_stop_speed_threshold: null      # Limit to scenarios where the ego reaches a certain speed from above
+speed_noise_tolerance: null         # Value at or below which a speed change between two timepoints should be ignored as noise.
+
+expand_scenarios: false             # Whether to expand multi-sample scenarios to multiple single-sample scenarios
+remove_invalid_goals: false         # Whether to remove scenarios where the mission goal is invalid
+shuffle: false                      # Whether to shuffle the scenarios

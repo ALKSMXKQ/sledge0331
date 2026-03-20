@@ -1,0 +1,45 @@
+1. 根据 /docs/installation.md 下载预处理后的数据集 调整目录格式 配置环境路径 配置环境
+1.1 conda 配置多加几个镜像源解决连接超时问题
+1.2 由于 autoencoder_cache 存在样本缺失后续无法完成自编码器训练 所以在官网下载 maps 和 波士顿城市训练集与验证集
+
+2. autoencoder.md 提取特征缓存 训练自编码器 生成实验文件
+2.1 直接下载预处理好的 autoencoder_cache
+2.2 所有 .sh 文件中的 USE_CACHE_WITHOUT_DATASET=false 需要原始数据集进行训练
+    修改 /home/leitingting/sledge_workspace/sledge/sledge/script/config/common/scenario_builder/nuplan.yaml 中数据集的路径
+    修改 /home/leitingting/sledge_workspace/sledge/sledge/script/config/common/default_common.yaml 中的
+        scenario_builder 为 nuplan
+        scenario_filter 为 filter_bos
+    grep -r xxx 查询所有存在xxx的文件
+    训练批次 50 次 batch_size = 830
+2.3 修改 latent_caching_rvae.sh 中的路径 AUTOENCODER_CHECKPOINT 的路径为 epoch49 的路径
+    修改 epoch49 的 ckpt 的参数文件命名为规范模式
+
+3. diffusion.md 训练扩散模型 场景合成
+3.1 修改 training_diffusion.sh 中的路径
+    TypeError: to_pylist() got an unexpected keyword argument 'maps_as_pydicts' 降级 pyarrow 到版本 15.0.0
+    batchsize 831 epoch100
+
+3.2 修改 scenario_caching_diffusion.sh 中的路径
+    删掉第二个 py_func=scenario_cache \
+    RuntimeError: You must initialize the accelerate state by calling either `PartialState()` or `Accelerator()`
+        before using the logging utility. 在日志调用前初始化 Accelerate
+        /home/leitingting/sledge_workspace/sledge/sledge/diffusion/experiments/scenario_caching.py 中
+        添加 from accelerate import Accelerator 以及 21 行 logger.info 前添加 accelerator = Accelerator()  # 初始化 Accelerate
+    Load cache files 3*100
+
+4. Simulation.md 使用场景缓存进行仿真 SledgeBoard可视化
+4.1 从 scenario_cache 中提取场景时一直卡顿导致服务器超时
+        在 sledge_workspace\sledge\sledge\script\builders\simulation_builder.py 中将场景一个一个的添加并增加日志输出
+4.2 服务器上的网址是  http://localhost:5006/ 使用 SSH 隧道命令
+    ssh -L 5122:localhost:5006 -p 5122 leitingting@10.16.36.34 在本地打开网址 http://127.0.0.1:5122/
+
+
+conda activate sledge
+cd $SLEDGE_DEVKIT_ROOT/scripts/autoencoder/rvae/
+bash training_rvae.sh
+bash latent_caching_rvae.sh
+
+cd $SLEDGE_DEVKIT_ROOT/scripts/diffusion/
+bash training_diffusion.sh
+
+

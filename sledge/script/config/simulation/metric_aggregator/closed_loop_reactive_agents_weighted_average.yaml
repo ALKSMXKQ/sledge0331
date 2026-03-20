@@ -1,0 +1,35 @@
+closed_loop_reactive_agents_weighted_average:
+  _target_: nuplan.planning.metrics.aggregator.weighted_average_metric_aggregator.WeightedAverageMetricAggregator
+  name: 'closed_loop_reactive_agents_weighted_average'
+  metric_weights:
+    # High level metrics
+    drivable_area_compliance_statistics: 42.0
+    no_ego_at_fault_collisions_statistics: 208.0
+    time_to_collision_within_bound_statistics: 208.0
+    minimum_comfortable_interaction_distance_statistics: -174.0
+    speed_limit_compliance_statistics: 167.0
+    ego_is_comfortable_statistics: 83.0
+    ego_is_making_progress_statistics: 42.0
+    driving_direction_compliance_statistics: 42.0
+    collision_probability_statistics: -217.0
+    global_expected_risk_statistics: -217.0
+    continuous_path_visibility_risk_score_statistics: -174.0
+    local_risk_difference_coefficient_metric: -174.0
+
+
+    # Low level metrics
+    ego_jerk_statistics: -43.0
+    ego_progress_along_expert_route: 208.0
+
+    default: 1.0  # 添加这一行！
+
+  file_name: closed_loop_reactive_agents_weighted_average_metrics_${now:${date_format}}
+  # The scenario score is defined as the weighted average score of the metrics listed above, multiplied by the score of the multiple_metrics below.
+  multiple_metrics:
+    - no_ego_at_fault_collisions # This metric score can be 0, 0.5 or 1 depending on whether there is an at fault collision with VRUs, vehicles or objects
+    - drivable_area_compliance # This metric score can be 0 or 1 depending on whether ego drives outside the drivable area
+    - ego_is_making_progress # This metric score can be 0 or 1 depending on whether ego makes progress more than a minimum threshold compared to expert's progress
+    - driving_direction_compliance # This metric score can be 0 or 0.5 or 1 depending on how much ego drives in the opposite direction if any
+  # challenge_name: closed_loop_reactive_agents
+
+  challenge_name: ${job_name}

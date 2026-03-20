@@ -1,0 +1,11 @@
+# @package _group_
+continuous_path_visibility_risk_score_statistics:
+  _target_: nuplan.planning.metrics.evaluation_metrics.common.continuous_path_visibility_risk_score.ContinuousPathVisibilityRiskScore
+  name: "continuous_path_visibility_risk_score_statistics"
+  category: "high_level_metrics"
+  time_horizon: 4.0
+  dist_threshold_m: 50
+  visibility_search_radius: 25.0
+  visibility_search_angle: 160.0
+  least_min_ttc: 4.0
+  lateral_safety_margin: 0.5 

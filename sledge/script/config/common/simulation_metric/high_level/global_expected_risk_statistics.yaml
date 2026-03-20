@@ -1,0 +1,14 @@
+global_expected_risk_statistics:
+  _target_: nuplan.planning.metrics.evaluation_metrics.common.global_expected_risk_metric.GlobalExpectedRiskStatistics
+  _convert_: 'all'
+  name: 'global_expected_risk_statistics'
+  category: 'risk'
+  metric_score_unit: 'risk'
+  time_horizon: 5.0
+  time_step_size: 0.1
+  lateral_safety_margin: 0.5
+  least_min_ttc: 1.0
+  
+  required_metrics:
+    ego_lane_change_metric: ego_lane_change_statistics
+    no_ego_at_fault_collisions_metric: no_ego_at_fault_collisions_statistics 

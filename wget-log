@@ -1,0 +1,101 @@
+--2025-07-16 16:27:20--  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Resolving s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)... 2a03:2880:f11a:83:face:b00c:0:25de, 154.83.15.45
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:31:53--  (try: 2)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:36:24--  (try: 3)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:40:56--  (try: 4)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:45:31--  (try: 5)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:50:07--  (try: 6)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:54:42--  (try: 7)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 16:59:17--  (try: 8)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:03:57--  (try: 9)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:08:36--  (try:10)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:13:16--  (try:11)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:17:54--  (try:12)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:22:33--  (try:13)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:27:12--  (try:14)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:31:50--  (try:15)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:36:29--  (try:16)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:41:07--  (try:17)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:45:46--  (try:18)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:50:24--  (try:19)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Retrying.
+
+--2025-07-16 17:55:03--  (try:20)  https://s3.eu-central-1.amazonaws.com/avg-projects-2/sledge/caches/autoencoder_cache.zip
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|2a03:2880:f11a:83:face:b00c:0:25de|:443... failed: Connection timed out.
+Connecting to s3.eu-central-1.amazonaws.com (s3.eu-central-1.amazonaws.com)|154.83.15.45|:443... failed: Connection timed out.
+Giving up.
+
