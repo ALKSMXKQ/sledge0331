@@ -3,24 +3,18 @@ from typing import List, Optional, Union
 
 import torch
 
+from diffusers import DiffusionPipeline
 from diffusers.models import DiTTransformer2DModel
 from diffusers.schedulers import DDPMScheduler
-from diffusers import DiffusionPipeline
 
 from sledge.autoencoder.modeling.models.rvae.rvae_decoder import RVAEDecoder
 from sledge.autoencoder.preprocessing.features.sledge_vector_feature import SledgeVector
 
 
 class LDMPipeline(DiffusionPipeline):
-    """Latent Diffusion Model pipeline for generation."""
+    """Latent Diffusion Model pipeline for unconditional or img2img-style scene generation."""
 
     def __init__(self, decoder: RVAEDecoder, transformer: DiTTransformer2DModel, scheduler: DDPMScheduler):
-        """
-        Initializes diffusion pipeline.
-        :param decoder: decoder module of raster-vector autoencoder
-        :param transformer: diffusion transformer
-        :param scheduler: noise schedular
-        """
         super().__init__()
         self.register_modules(decoder=decoder, transformer=transformer, scheduler=scheduler)
 
@@ -32,76 +26,109 @@ class LDMPipeline(DiffusionPipeline):
         guidance_scale: float = 4.0,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         eta: float = 0.0,
-        num_classes: int = 5,
-    ) -> List[SledgeVector]:
+        num_classes: int = 4,
+        init_latents: Optional[torch.Tensor] = None,
+        start_timestep_index: int = 0,
+        preserve_mask: Optional[torch.Tensor] = None,
+        noise: Optional[torch.Tensor] = None,
+        return_latents: bool = False,
+    ) -> Union[List[SledgeVector], tuple[List[SledgeVector], torch.Tensor]]:
         """
-        Generates a batch of sledge vectors.
-        :param class_labels: list of integers for classes to generate.
-        :param num_inference_timesteps: iterative diffusion steps, defaults to 50
-        :param guidance_scale: scale for classifier-free guidance, defaults to 4.0
-        :param generator: optional torch generator, defaults to None
-        :param eta: noise multiplier, defaults to 0.0
-        :param num_classes: number of classes, defaults to 4
-        :return: list of sledge vector dataclass
+        Generate scenes from pure noise or from an encoded scene latent.
+
+        Args:
+            class_labels: map/city labels.
+            num_inference_timesteps: number of reverse denoising steps.
+            guidance_scale: classifier-free guidance scale.
+            generator: optional generator.
+            eta: scheduler eta where supported.
+            num_classes: number of class labels used during training.
+            init_latents: optional encoded scene latent. When provided, the pipeline
+                performs img2img-style generation by first noising this latent and then
+                denoising from ``start_timestep_index`` onward.
+            start_timestep_index: reverse process starting index over scheduler.timesteps.
+                ``0`` means standard generation from the noisiest step. ``30`` with
+                50 steps means: add noise at scheduler.timesteps[30] and denoise from there.
+            preserve_mask: optional latent-space mask shaped ``[B,1,H,W]`` or ``[B,C,H,W]``.
+                Masked regions are repeatedly reset to the source latent at every step,
+                which preserves user-edited entities during denoising.
+            noise: optional noise tensor for deterministic experiments.
+            return_latents: whether to also return the final latent tensor.
         """
 
         batch_size = len(class_labels)
-        class_labels = torch.tensor(class_labels, device=self.device).reshape(-1)
-        class_null = torch.tensor([num_classes] * batch_size, device=self.device)
-        class_labels_input = torch.cat([class_labels, class_null], 0)
-
-        latents = torch.randn(
-            (
-                batch_size,
-                self.transformer.config.in_channels,
-                self.transformer.config.sample_size,
-                self.transformer.config.sample_size,
-            ),
-            generator=generator,
-            device=self.device,
-        )
-
-        # scale the initial noise by the standard deviation required by the scheduler
-        latent_model_input = torch.cat([latents] * 2)
-        latent_model_input = latent_model_input * self.scheduler.init_noise_sigma
+        class_labels_tensor, class_labels_input = self._prepare_class_labels(class_labels, num_classes)
 
         self.scheduler.set_timesteps(num_inference_timesteps, device=self.device)
+        timesteps = self.scheduler.timesteps
+        start_timestep_index = int(max(0, min(start_timestep_index, len(timesteps) - 1)))
 
-        # prepare extra kwargs for the scheduler step, since not all schedulers have the same signature
         accepts_eta = "eta" in set(inspect.signature(self.scheduler.step).parameters.keys())
+        extra_kwargs = {"eta": eta} if accepts_eta else {}
 
-        extra_kwargs = {}
-        if accepts_eta:
-            extra_kwargs["eta"] = eta
+        latent_shape = (
+            batch_size,
+            self.transformer.config.in_channels,
+            self.transformer.config.sample_size,
+            self.transformer.config.sample_size,
+        )
 
-        for t in self.progress_bar(self.scheduler.timesteps):
+        if init_latents is None:
+            latents = torch.randn(latent_shape, generator=generator, device=self.device)
+            latents = latents * self.scheduler.init_noise_sigma
+            source_latents = None
+            source_noise = None
+            denoise_timesteps = timesteps
+        else:
+            init_latents = init_latents.to(self.device)
+            if init_latents.shape != latent_shape:
+                raise ValueError(f"init_latents shape {tuple(init_latents.shape)} does not match expected {latent_shape}")
+            source_latents = init_latents
+            source_noise = noise if noise is not None else torch.randn(source_latents.shape, generator=generator, device=self.device, dtype=source_latents.dtype)
+            source_noise = source_noise.to(self.device)
+            start_timestep = timesteps[start_timestep_index]
+            timestep_batch = torch.full((batch_size,), int(start_timestep.item()), device=self.device, dtype=torch.long)
+            latents = self.scheduler.add_noise(source_latents, source_noise, timestep_batch)
+            denoise_timesteps = timesteps[start_timestep_index:]
 
-            # scale the model input
-            half = latent_model_input[: len(latent_model_input) // 2]
-            latent_model_input = torch.cat([half, half], dim=0)
+        preserve_mask = self._prepare_preserve_mask(preserve_mask, latents) if preserve_mask is not None else None
+
+        for t in self.progress_bar(denoise_timesteps):
+            if preserve_mask is not None and source_latents is not None and source_noise is not None:
+                timestep_batch = torch.full((batch_size,), int(t.item()), device=self.device, dtype=torch.long)
+                source_noised = self.scheduler.add_noise(source_latents, source_noise, timestep_batch)
+                latents = preserve_mask * source_noised + (1.0 - preserve_mask) * latents
+
+            latent_model_input = torch.cat([latents, latents], dim=0)
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-
-            # predict the noise residual
             noise_prediction = self.transformer(
                 hidden_states=latent_model_input,
                 class_labels=class_labels_input,
                 timestep=t.unsqueeze(0),
             ).sample
 
-            # perform guidance
-            cond_eps, uncond_eps = torch.split(noise_prediction, len(noise_prediction) // 2, dim=0)
-            half_eps = uncond_eps + guidance_scale * (cond_eps - uncond_eps)
-            noise_prediction = torch.cat([half_eps, half_eps], dim=0)
+            cond_eps, uncond_eps = torch.split(noise_prediction, batch_size, dim=0)
+            guided_eps = uncond_eps + guidance_scale * (cond_eps - uncond_eps)
+            latents = self.scheduler.step(guided_eps, t, latents, **extra_kwargs).prev_sample
 
-            # compute the previous noisy sample x_t -> x_t-1
-            latent_model_input = self.scheduler.step(
-                noise_prediction, t, latent_model_input, **extra_kwargs
-            ).prev_sample
-
-        # split the latent into the two halves
-        latent_model_input, _ = latent_model_input.chunk(2, dim=0)
-
-        # convert the vectors to images
-        vector_output = self.decoder.decode(latent_model_input).unpack()
-
+        vector_output = self.decoder.decode(latents).unpack()
+        if return_latents:
+            return vector_output, latents
         return vector_output
+
+    def _prepare_class_labels(self, class_labels: List[int], num_classes: int) -> tuple[torch.Tensor, torch.Tensor]:
+        class_labels_tensor = torch.tensor(class_labels, device=self.device).reshape(-1)
+        class_null = torch.tensor([num_classes] * len(class_labels), device=self.device)
+        class_labels_input = torch.cat([class_labels_tensor, class_null], 0)
+        return class_labels_tensor, class_labels_input
+
+    @staticmethod
+    def _prepare_preserve_mask(mask: torch.Tensor, latents: torch.Tensor) -> torch.Tensor:
+        mask = mask.to(device=latents.device, dtype=latents.dtype)
+        if mask.ndim != 4:
+            raise ValueError(f"preserve_mask must be 4D, got shape {tuple(mask.shape)}")
+        if mask.shape[1] == 1:
+            mask = mask.repeat(1, latents.shape[1], 1, 1)
+        if mask.shape != latents.shape:
+            raise ValueError(f"preserve_mask shape {tuple(mask.shape)} must match latents {tuple(latents.shape)} or have 1 channel")
+        return mask.clamp(0.0, 1.0)

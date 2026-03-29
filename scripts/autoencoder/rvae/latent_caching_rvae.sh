@@ -1,5 +1,5 @@
 JOB_NAME=latent_caching
-AUTOENCODER_CACHE_PATH=/home16T/home8T_1/leitingting/sledge_workspace/exp/caches/autoencoder_cache
+AUTOENCODER_CACHE_PATH=/home16T/home8T_1/leitingting/sledge_workspace/exp/caches/autoencoder_cache_semtrans_filtered
 AUTOENCODER_CHECKPOINT=/home16T/home8T_1/leitingting/sledge_workspace/exp/exp/training_rvae_model/training_rvae_model/2025.10.17.06.17.03/best_model/epoch45.ckpt
 USE_CACHE_WITHOUT_DATASET=False
 SEED=0

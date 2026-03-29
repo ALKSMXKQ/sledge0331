@@ -9,7 +9,6 @@ hydra:
 defaults:
   - default_experiment
   - default_common
-  - scenario_filter: filter_bos # 强制仅使用 Boston 地图
 
   # hugging face accelerator config
   - accelerator: default_accelerator
@@ -18,7 +17,7 @@ defaults:
   - noise_scheduler: ddpm_scheduler
   - optimizer: adamw
 
-experiment_name: ${py_func}_scenario_based_diffusion
+experiment_name: ${py_func}_diffusion
 
 num_epochs: 100
 
@@ -26,9 +25,7 @@ debug_mode: true # runs one train batch and inference if true
 
 inference_epochs: 1
 inference_batch_size: 16
-
-# num_classes: 4
-num_classes: 5
+num_classes: 4
 
 guidance_scale: 4.0
 num_inference_timesteps: 100
@@ -59,7 +56,7 @@ ema:
 
 # Cache parameters
 cache:
-  autoencoder_cache_path: ${oc.env:SLEDGE_EXP_ROOT}/caches/autoencoder_cache 
+  autoencoder_cache_path: ${oc.env:SLEDGE_EXP_ROOT}/caches/autoencoder_cache
   diffusion_cache_path: ${oc.env:SLEDGE_EXP_ROOT}/caches/diffusion_cache
   cleanup_diffusion_cache: false
 

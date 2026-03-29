@@ -15,8 +15,3 @@ selected_simulation_metrics: null
 
 # Sets verbosity level, in particular determines if progress bars are shown or not.
 verbose: false
-
-##########################################################
-# 确保 target_builder 使用你新写的名称
-target_builder:
-  - scenario_type  # 对应 get_feature_unique_name 返回的值

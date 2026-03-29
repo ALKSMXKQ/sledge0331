@@ -370,7 +370,10 @@ class EgoHead(nn.Module):
 
     def forward(self, ego_query) -> SledgeVectorElement:
 
-        states = self._ffn_states(ego_query).squeeze()
+        ##############################################################################
+        # states = self._ffn_states(ego_query).squeeze()
+        states = self._ffn_states(ego_query).squeeze(-1)
+        #######################################################################
         mask = torch.ones_like(states)  # dummy
 
         return SledgeVectorElement(states, mask)

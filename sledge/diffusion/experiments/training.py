@@ -180,9 +180,7 @@ def run_training_diffusion(cfg):
 
         for step, batch in enumerate(dataloader):
             # Load latents and labels
-            # ---------------- 修改开始 ----------------
-            scenario_labels = batch["label"] # 原来是 map_ids = batch["label"]
-            # ---------------- 修改结束 ----------------
+            map_ids = batch["label"]
             latents = batch["input"]
 
             # Sample noise that we'll add to the latents
@@ -201,9 +199,7 @@ def run_training_diffusion(cfg):
                 # Predict the noise residual
                 model_output = diffusion_model(
                     hidden_states=noisy_latents,
-                    # ---------------- 修改开始 ----------------
-                    class_labels=scenario_labels, # 原来是 class_labels=map_ids,
-                    # ---------------- 修改结束 ----------------
+                    class_labels=map_ids,
                     timestep=timesteps,
                 ).sample
                 loss = F.mse_loss(model_output, noise)  # TODO: add to config

@@ -42,35 +42,23 @@ ROUTE_LENGTH = 32  # [m]
 class SledgeScenario(AbstractScenario):
     """Scenario implementation for sledge that is used for simulation in Lane & Agent mode."""
 
-    # 在 sledge/simulation/scenarios/sledge_scenario/sledge_scenario.py 中
+    def __init__(self, data_root: Path) -> None:
+        """ """
 
-    def __init__(self, data_root: Path, sledge_vector: Optional[SledgeVector] = None) -> None:
-        """
-        Modified to accept an optional sledge_vector object directly.
-        """
         self._data_root = data_root
-
-        # 1. 如果传入了 vector 对象，直接使用 (适配 scenario_dreamer)
-        if sledge_vector is not None:
-            self._sledge_vector = sledge_vector
-            self._initial_lidar_token = "generated_scenario"
-            self._log_name = "scenario_dreamer_log"
-            self._scenario_type = "generated"
-        # 2. 否则保持原有逻辑，从文件加载
-        else:
-            self._initial_lidar_token = data_root.parent.name
-            self._sledge_vector: SledgeVector = FeatureCachePickle().load_computed_feature_from_folder(
-                data_root, SledgeVector
-            )
-            self._log_name: str = data_root.parent.parent.parent.name
-            self._scenario_type: str = data_root.parent.parent.name
-
-        # 初始化 Map (SledgeMap 会根据 vector 构建图)
+        self._initial_lidar_token = data_root.parent.name
+        self._sledge_vector: SledgeVector = FeatureCachePickle().load_computed_feature_from_folder(
+            data_root, SledgeVector
+        )
         self._map_api = SledgeMap(self._sledge_vector)
+
+        self._log_file = data_root
+        self._log_name: str = data_root.parent.parent.parent.name
+        self._scenario_type: str = data_root.parent.parent.name
 
         self._ego_vehicle_parameters = get_pacifica_parameters()
 
-        # Configs
+        # TODO: add to some config
         self._future_sampling = FUTURE_SAMPLING
         self._time_points = [
             TimePoint(int(time_s * 1e6))
@@ -78,7 +66,6 @@ class SledgeScenario(AbstractScenario):
         ]
         self._number_of_iterations = len(self._time_points)
 
-        # 重新计算路由
         self._route_roadblock_ids, self._route_path = get_route(self._map_api)
 
     def __reduce__(self) -> Tuple[Type[SledgeScenario], Tuple[Any, ...]]:
@@ -183,12 +170,7 @@ class SledgeScenario(AbstractScenario):
         distance_per_iteration = ROUTE_LENGTH / self._future_sampling.num_poses
 
         center = self._route_path.interpolate([initial_distance + distance_per_iteration * iteration])[0]
-
-        # 【修复】取出张量中的第一个元素 (vx)，并使用 .item() 转换为标量
-        # 假设 ego.states 的形状是 [1, 4] (vx, vy, ax, ay)
-        ego_velocity_x = self._sledge_vector.ego.states[0, 0].item()
-        center_velocity_2d = StateVector2D(ego_velocity_x, 0)
-
+        center_velocity_2d = StateVector2D(float(self._sledge_vector.ego.states), 0)
         center_acceleration_2d = StateVector2D(0, 0)
 
         # project ego with constant velocity and heading
@@ -350,4 +332,4 @@ class SledgeScenario(AbstractScenario):
 
     def get_scenario_tokens(self) -> List[str]:
         """Return the list of lidarpc tokens from the DB that are contained in the scenario."""
-        raise NotImplementedError
+        raise NotImplementedErro

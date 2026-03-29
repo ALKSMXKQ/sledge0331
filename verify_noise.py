@@ -1,129 +1,80 @@
-import os
-import copy
-import random
 import torch
+import os
 import numpy as np
-from PIL import Image
+from diffusers import DDIMScheduler  # 必须导入这个
 from sledge.diffusion.modelling.ldm_pipeline import LDMPipeline
-from sledge.autoencoder.callbacks.rvae_visualization_callback import get_sledge_vector_as_raster
-
-
-# ==========================================
-# 【滤镜函数】Sledgeboard 的核心“美颜”逻辑
-# ==========================================
-def apply_sledgeboard_filter(vector_data, confidence_threshold=0.5):
-    """
-    清洗底层的向量数据，过滤掉模型低置信度的“乱线”和“噪点”。
-    """
-    clean_data = copy.deepcopy(vector_data)
-    for key in dir(clean_data):
-        if not key.startswith("_"):
-            element = getattr(clean_data, key)
-            if hasattr(element, 'mask'):
-                mask = getattr(element, 'mask')
-                # 置信度低于阈值的点，强行抹除不画
-                clean_mask = np.where(mask < confidence_threshold, 0.0, mask)
-                setattr(element, 'mask', clean_mask)
-    return clean_data
-
+from sledge.script.builders.diffusion_builder import build_pipeline_from_checkpoint
+import hydra
+from omegaconf import DictConfig
 
 # ==========================================
-# 【严谨对比函数】底层数学张量的递归比对
+# 第一步：在最开头锁死所有硬件随机性
 # ==========================================
-def check_vectors_equal(vec1, vec2):
-    """
-    遍历两个 SledgeVector 的所有底层 numpy 矩阵，进行逐元素比对。
-    """
-    for key in dir(vec1):
-        if not key.startswith("_"):
-            elem1 = getattr(vec1, key)
-            elem2 = getattr(vec2, key)
-
-            # 对比 states (坐标张量)
-            if hasattr(elem1, 'states') and hasattr(elem2, 'states'):
-                if not np.allclose(elem1.states, elem2.states, atol=1e-5):
-                    return False
-            # 对比 mask (置信度张量)
-            if hasattr(elem1, 'mask') and hasattr(elem2, 'mask'):
-                if not np.allclose(elem1.mask, elem2.mask, atol=1e-5):
-                    return False
-    return True
+#os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # 针对 CUDA 原子操作的一致性设置
+#torch.use_deterministic_algorithms(True)  # 强制使用确定性算法
+#torch.backends.cudnn.deterministic = True  # 锁死 cuDNN
+#torch.backends.cudnn.benchmark = False  # 关闭自动算法优化
 
 
-# ==========================================
-# 主程序
-# ==========================================
-def verify_fixed_noise():
-    # 您实际的 checkpoint 和图片保存路径
-    checkpoint_path = "/home16T/home8T_1/leitingting/sledge_workspace/exp/exp/training_dit_model/training_dit_diffusion/2025.10.17.18.36.55/checkpoint"
-    save_dir = "/home16T/home8T_1/leitingting/sledge_workspace/sledge/png/"
-    os.makedirs(save_dir, exist_ok=True)
+@hydra.main(config_path="sledge/script/config/diffusion", config_name="default_diffusion")
+def main(cfg: DictConfig):
+    # 1. 加载预训练好的 Pipeline
+    print("\n[SYSTEM] Loading pipeline from checkpoint...")
+    pipeline = build_pipeline_from_checkpoint(cfg)
 
-    print(f"正在加载训练好的模型: {checkpoint_path}")
-    pipeline = LDMPipeline.from_pretrained(checkpoint_path).to("cuda")
+    # ==========================================
+    # 第二步：强制替换调度器为 DDIM (确定性模式)
+    # ==========================================
+    print("[SYSTEM] Replacing DDPMScheduler with DDIMScheduler for 100% determinism...")
+    # 从原有的配置中继承 beta_start, beta_end 等参数
+    pipeline.scheduler = DDIMScheduler.from_config(pipeline.scheduler.config)
 
-    # 参数设定
-    num_classes = 4
-    class_labels = [3, 3, 3, 3]  # 一次生成 4 张波士顿地图，完美绕过 batch_size=1 导致的 0-d tensor 挤压 bug
-    fixed_seed = 42
-    inference_steps = 100  # 必须是 100 步，保证去噪充分
-    clean_threshold = 0.5  # 美颜滤镜强度
+    pipeline.to("cuda")
 
-    saved_raw_vectors = []
+    # 2. 设置实验参数
+    seed = 0
+    num_samples = 4
+    class_labels = [0] * num_samples
 
-    print("\n========== 实验开始：多次生成 ==========")
-    for i in range(3):
-        print(f"\n--> 正在进行第 {i + 1} 次推理去噪...")
+    # 3. 运行第一次生成 (Run A)
+    print("\n--- Running Generation A (Deterministic) ---")
+    generator_a = torch.Generator(device=pipeline.device).manual_seed(seed)
+    output_a = pipeline(
+        class_labels=class_labels,
+        generator=generator_a,
+        eta=0.0,  # DDIM 下 eta=0 意味着完全关闭随机噪声采样
+        num_inference_timesteps=cfg.num_inference_timesteps
+    )
 
-        # ==============================================================
-        # 【终极暴力锁】：必须放在 for 循环内部！
-        # 每次推理前，强行把系统所有可能的随机引擎全部重置回起点！
-        # ==============================================================
-        torch.manual_seed(fixed_seed)
-        torch.cuda.manual_seed_all(fixed_seed)
-        np.random.seed(fixed_seed)
-        random.seed(fixed_seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+    # 4. 运行第二次生成 (Run B)
+    print("--- Running Generation B (Deterministic) ---")
+    generator_b = torch.Generator(device=pipeline.device).manual_seed(seed)
+    output_b = pipeline(
+        class_labels=class_labels,
+        generator=generator_b,
+        eta=0.0,
+        num_inference_timesteps=cfg.num_inference_timesteps
+    )
 
-        generator = torch.Generator(device=pipeline.device).manual_seed(fixed_seed)
+    # 5. 数值一致性检查
+    print("\n--- Final Verification Results (DDIM Mode) ---")
+    for i in range(num_samples):
+        # 校验车辆、行人、地图线的状态张量
+        v_diff = torch.abs(output_a[i].vehicles.states - output_b[i].vehicles.states).sum().item()
+        p_diff = torch.abs(output_a[i].pedestrians.states - output_b[i].pedestrians.states).sum().item()
+        l_diff = torch.abs(output_a[i].lines.states - output_b[i].lines.states).sum().item()
 
-        with torch.no_grad():
-            sledge_vectors = pipeline(
-                class_labels=class_labels,
-                num_inference_timesteps=inference_steps,
-                guidance_scale=4.0,
-                generator=generator,
-                num_classes=num_classes
-            )
+        print(f"Sample {i}:")
+        print(f"  - Vehicle Diff: {v_diff:.8f}")
+        print(f"  - Pedestrian Diff: {p_diff:.8f}")
+        print(f"  - Lines Diff: {l_diff:.8f}")
 
-        # 1. 提取 batch 里的第 1 张地图，并转成 Numpy
-        raw_vector_data = sledge_vectors[0].torch_to_numpy()
-        saved_raw_vectors.append(raw_vector_data)
-
-        # 2. 调用美颜滤镜，清洗掉低置信度噪点
-        clean_vector_data = apply_sledgeboard_filter(raw_vector_data, confidence_threshold=clean_threshold)
-
-        # 3. 转换成像素矩阵
-        raster_image = get_sledge_vector_as_raster(clean_vector_data, pipeline.decoder._config)
-
-        # 4. 保存到专门的 png 文件夹
-        img = Image.fromarray(raster_image.astype(np.uint8))
-        img_name = os.path.join(save_dir, f"verify_scene_clean_run_{i + 1}.png")
-        img.save(img_name)
-        print(f"    生成完毕！标准可视化图像已保存为: {img_name}")
-
-    print("\n========== 终极数学验证 (底层张量级别) ==========")
-    # 直接比较底层浮点数矩阵，不仅肉眼要一样，数学上也要绝对一致
-    is_1_2_match = check_vectors_equal(saved_raw_vectors[0], saved_raw_vectors[1])
-    is_2_3_match = check_vectors_equal(saved_raw_vectors[1], saved_raw_vectors[2])
-
-    if is_1_2_match and is_2_3_match:
-        print("🎉 验证成功！三次生成的底层数学坐标及Mask张量【完全一模一样】！")
-        print("这证明 SLEDGE 的生成过程已经被彻底控制！")
-    else:
-        print("❌ 发现张量差异！底层存在未知的随机泄漏。")
+        # 如果数值完全一致（Diff 为 0），则通过
+        if v_diff == 0 and p_diff == 0 and l_diff == 0:
+            print(f"  ✅ 结论: 完全一致 (Perfect Match)")
+        else:
+            print(f"  ❌ 结论: 仍有差异 (Check for other random sources)")
 
 
 if __name__ == "__main__":
-    verify_fixed_noise()
+    main()
