@@ -7,16 +7,15 @@ from typing import Any, Dict, List, Optional
 @dataclass
 class PromptSpec:
     """
-    Prompt spec aligned with the simplified scene type:
-        "突发的行人横穿马路"
+    Unified prompt specification for multiple rare scenario families.
 
-    This version adds severity tiers:
-        - mild
-        - moderate
-        - aggressive
+    Supported scenario types:
+        - sudden_pedestrian_crossing
+        - cut_in
+        - hard_brake
 
-    The fields are kept backward-compatible so existing pipeline code can still
-    serialize / consume the object without changes.
+    The dataclass remains backward-compatible with the original crossing-only
+    version while adding scenario-generic control fields.
     """
 
     raw_prompt: str
@@ -25,7 +24,7 @@ class PromptSpec:
     city: Optional[str] = None
     map_id: Optional[int] = None
 
-    # Backward-compatible legacy fields; crossing semantics usually leaves them neutral.
+    # Legacy / backward-compatible fields
     occluder_type: str = "none"
     side: str = "auto"
     moderate_traffic: bool = False
@@ -35,22 +34,39 @@ class PromptSpec:
     use_existing_occluder_first: bool = False
     insert_occluder_if_missing: bool = False
 
-    # Shared editable parameters.
-    pedestrian_speed: float = 1.6
-    occluder_distance_m: float = 0.0
-    occluder_lateral_offset_m: float = 0.0
-    prune_conflict_radius_m: float = 0.0
-    slow_vehicle_radius_m: float = 0.0
-    conflict_point_x_m: float = 12.0
-    conflict_point_y_m: float = 0.0
-
-    # New crossing-specific fields.
+    # Generic scene control fields
     severity_level: str = "moderate"  # mild / moderate / aggressive
+    primary_actor_type: str = "none"  # pedestrian / vehicle / lead_vehicle
+    crossing_style: str = "pedestrian_crossing"
+
+    # Shared motion / timing parameters
+    pedestrian_speed: float = 1.6
+    vehicle_speed: float = 8.0
+    target_speed_mps: float = 0.0
     ttc_min_s: float = 2.0
     ttc_max_s: float = 3.0
+
+    # Geometric targets / gaps
+    conflict_point_x_m: float = 12.0
+    conflict_point_y_m: float = 0.0
+    target_gap_min_m: float = 5.0
+    target_gap_max_m: float = 12.0
+    lead_distance_min_m: float = 6.0
+    lead_distance_max_m: float = 15.0
+
+    # Scenario-specific dynamic bounds
+    lateral_speed_min_mps: float = 0.8
+    lateral_speed_max_mps: float = 2.4
+    relative_speed_min_mps: float = 2.0
+    relative_speed_max_mps: float = 8.0
+    target_decel_min_mps2: float = 2.0
+    target_decel_max_mps2: float = 6.0
+
+    # Editing policy
     spawn_from_roadside: bool = True
     keep_scene_minimal: bool = True
-    crossing_style: str = "pedestrian_crossing"
+    allow_actor_insertion: bool = True
+    prefer_existing_actor: bool = False
 
     matched_rules: List[str] = field(default_factory=list)
     debug: Dict[str, Any] = field(default_factory=dict)
@@ -80,13 +96,19 @@ class SceneEditROI:
 @dataclass
 class SceneEditResult:
     prompt_spec: PromptSpec
-    occluder_source: str
-    occluder_index: int
-    pedestrian_index: int
-    conflict_point_xy: List[float]
+    occluder_source: str = "none"
+    occluder_index: int = -1
+    pedestrian_index: int = -1
+
+    primary_actor_type: str = "none"
+    primary_actor_index: int = -1
+
+    conflict_point_xy: List[float] = field(default_factory=lambda: [0.0, 0.0])
     preserved_rois: List[SceneEditROI] = field(default_factory=list)
+
     removed_vehicle_indices: List[int] = field(default_factory=list)
     slowed_vehicle_indices: List[int] = field(default_factory=list)
+
     notes: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -95,9 +117,11 @@ class SceneEditResult:
             "occluder_source": self.occluder_source,
             "occluder_index": self.occluder_index,
             "pedestrian_index": self.pedestrian_index,
-            "conflict_point_xy": self.conflict_point_xy,
+            "primary_actor_type": self.primary_actor_type,
+            "primary_actor_index": self.primary_actor_index,
+            "conflict_point_xy": list(self.conflict_point_xy),
             "preserved_rois": [roi.to_dict() for roi in self.preserved_rois],
-            "removed_vehicle_indices": self.removed_vehicle_indices,
-            "slowed_vehicle_indices": self.slowed_vehicle_indices,
-            "notes": self.notes,
+            "removed_vehicle_indices": list(self.removed_vehicle_indices),
+            "slowed_vehicle_indices": list(self.slowed_vehicle_indices),
+            "notes": list(self.notes),
         }
