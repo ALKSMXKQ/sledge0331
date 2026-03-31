@@ -89,7 +89,7 @@ python sledge/script/run_semantic_img2img.py \
   --aggressive-ratio 0.15 \
   --skip-existing
   
-  python $SLEDGE_DEVKIT_ROOT/sledge/script/run_simulation.py   +simulation=sledge_reactive_agents   planner=pdm_closed_planner   observation=sledge_agents_observation   scenario_builder=nuplan   cache.scenario_cache_path=/home16T/home8T_1/leitingting/sledge_workspace/exp/caches/scenario_cache_edited_only
+  python $SLEDGE_DEVKIT_ROOT/sledge/script/run_simulation.py   +simulation=sledge_reactive_agents   planner=pdm_closed_planner   observation=sledge_agents_observation   scenario_builder=nuplan   cache.scenario_cache_path=/home16T/home8T_1/leitingting/sledge_workspace/exp/caches/scenario_cache_half_denoise_best
 
 ```
 
