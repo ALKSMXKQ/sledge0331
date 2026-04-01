@@ -1,21 +1,20 @@
-
 from __future__ import annotations
 
 import argparse
 import csv
 import hashlib
-import json
 import traceback
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from omegaconf import OmegaConf
 from tqdm import tqdm
 
 from sledge.semantic_control.io import load_raw_scene, save_json, save_raw_scene
+from sledge.semantic_control.prompt_alignment import PromptAlignmentEvaluator
 from sledge.semantic_control.prompt_parser import NaturalLanguagePromptParser
 from sledge.semantic_control.vector_editor import SemanticSceneEditor
-from sledge.semantic_control.prompt_alignment import PromptAlignmentEvaluator
 
 
 SCENARIO_TO_BASE_PROMPT = {
@@ -115,12 +114,20 @@ class MultiScenarioRawCacheBuilder:
 
         marker = out_dir / "scenario_label.json"
         if self.args.skip_existing and marker.exists() and (out_dir / "sledge_raw.gz").exists():
-            return {"skipped": True, "scenario_type": scenario_type, "severity_level": severity, "output_dir": str(out_dir)}
+            return {
+                "skipped": True,
+                "scenario_type": scenario_type,
+                "severity_level": severity,
+                "output_dir": str(out_dir),
+            }
 
         raw_scene, source_format = load_raw_scene(scene_path)
         prompt_spec = self.prompt_parser.parse(prompt)
         edited_raw, edit_report = self.scene_editor.edit(raw_scene, prompt_spec)
         alignment = self.alignment_evaluator.evaluate(edited_raw, prompt_spec)
+
+        alignment_dict = alignment.to_dict()
+        primary_note = alignment_dict["notes"][0] if alignment_dict.get("notes") else ""
 
         save_raw_scene(out_dir / "sledge_raw", edited_raw, source_format=source_format)
         save_json(
@@ -133,10 +140,11 @@ class MultiScenarioRawCacheBuilder:
                 "source_format": source_format,
                 "edited_alignment": float(alignment.total),
                 "accepted": bool(getattr(alignment, "accepted", False)),
+                "primary_note": primary_note,
             },
         )
         save_json(out_dir / "edit_report.json", edit_report.to_dict() if hasattr(edit_report, "to_dict") else edit_report)
-        save_json(out_dir / "edited_prompt_alignment.json", alignment.to_dict())
+        save_json(out_dir / "edited_prompt_alignment.json", alignment_dict)
 
         summary = {
             "scene_path": str(scene_path),
@@ -147,6 +155,7 @@ class MultiScenarioRawCacheBuilder:
             "source_format": source_format,
             "edited_alignment": float(alignment.total),
             "accepted": bool(getattr(alignment, "accepted", False)),
+            "primary_note": primary_note,
         }
         save_json(out_dir / "summary.json", summary)
         return summary
@@ -161,6 +170,7 @@ class MultiScenarioRawCacheBuilder:
             "prompt",
             "edited_alignment",
             "accepted",
+            "primary_note",
         ]
         with open(manifest_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -193,12 +203,88 @@ class MultiScenarioRawCacheBuilder:
                 "moderate_ratio": self.args.moderate_ratio,
                 "aggressive_ratio": self.args.aggressive_ratio,
             },
+            "scenario_acceptance": {},
+            "severity_acceptance": {},
+            "scenario_severity_counts": {},
+            "scenario_severity_acceptance": {},
+            "top_rejection_notes": [],
+            "score_buckets": {},
         }
+
+        scenario_counter: Counter[str] = Counter()
+        scenario_accept_counter: Counter[str] = Counter()
+        severity_counter: Counter[str] = Counter()
+        severity_accept_counter: Counter[str] = Counter()
+        scenario_sev_counter: Dict[str, Counter[str]] = defaultdict(Counter)
+        scenario_sev_accept_counter: Dict[str, Counter[str]] = defaultdict(Counter)
+        reject_note_counter: Counter[str] = Counter()
+        score_buckets = {
+            "[0.00,0.20)": 0,
+            "[0.20,0.50)": 0,
+            "[0.50,0.70)": 0,
+            "[0.70,0.90)": 0,
+            "[0.90,1.00]": 0,
+        }
+
         for row in self.manifest_rows:
             s = row["scenario_type"]
             sev = row["severity_level"]
-            stats["scenario_counts"][s] = stats["scenario_counts"].get(s, 0) + 1
-            stats["severity_counts"][sev] = stats["severity_counts"].get(sev, 0) + 1
+            acc = bool(row.get("accepted", False))
+            score = float(row.get("edited_alignment", 0.0))
+
+            scenario_counter[s] += 1
+            severity_counter[sev] += 1
+            scenario_sev_counter[s][sev] += 1
+            if acc:
+                scenario_accept_counter[s] += 1
+                severity_accept_counter[sev] += 1
+                scenario_sev_accept_counter[s][sev] += 1
+            else:
+                note = str(row.get("primary_note", "")).strip() or "no_note"
+                reject_note_counter[note] += 1
+
+            if score < 0.20:
+                score_buckets["[0.00,0.20)"] += 1
+            elif score < 0.50:
+                score_buckets["[0.20,0.50)"] += 1
+            elif score < 0.70:
+                score_buckets["[0.50,0.70)"] += 1
+            elif score < 0.90:
+                score_buckets["[0.70,0.90)"] += 1
+            else:
+                score_buckets["[0.90,1.00]"] += 1
+
+        stats["scenario_counts"] = dict(scenario_counter)
+        stats["severity_counts"] = dict(severity_counter)
+        stats["score_buckets"] = score_buckets
+        stats["top_rejection_notes"] = [
+            {"note": note, "count": int(count)} for note, count in reject_note_counter.most_common(10)
+        ]
+
+        for s, count in scenario_counter.items():
+            stats["scenario_acceptance"][s] = {
+                "accepted": int(scenario_accept_counter[s]),
+                "total": int(count),
+                "accept_rate": float(scenario_accept_counter[s] / max(1, count)),
+            }
+
+        for sev, count in severity_counter.items():
+            stats["severity_acceptance"][sev] = {
+                "accepted": int(severity_accept_counter[sev]),
+                "total": int(count),
+                "accept_rate": float(severity_accept_counter[sev] / max(1, count)),
+            }
+
+        for s, counter in scenario_sev_counter.items():
+            stats["scenario_severity_counts"][s] = dict(counter)
+            stats["scenario_severity_acceptance"][s] = {}
+            for sev, count in counter.items():
+                accepted = int(scenario_sev_accept_counter[s][sev])
+                stats["scenario_severity_acceptance"][s][sev] = {
+                    "accepted": accepted,
+                    "total": int(count),
+                    "accept_rate": float(accepted / max(1, count)),
+                }
 
         save_json(self.output_root / "scenario_stats.json", stats)
         save_json(self.output_root / "failed_rows.json", self.failed_rows)
@@ -249,7 +335,8 @@ class MultiScenarioRawCacheBuilder:
         self.save_manifest()
         accepted_count = int(sum(bool(r.get("accepted", False)) for r in self.manifest_rows))
         print(
-            f"Finished. processed={len(self.manifest_rows)} failed={len(self.failed_rows)} accepted={accepted_count} output_root={self.output_root}"
+            f"Finished. processed={len(self.manifest_rows)} failed={len(self.failed_rows)} "
+            f"accepted={accepted_count} output_root={self.output_root}"
         )
 
 

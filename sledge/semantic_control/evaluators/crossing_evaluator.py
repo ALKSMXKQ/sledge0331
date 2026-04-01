@@ -11,9 +11,9 @@ from sledge.autoencoder.preprocessing.features.sledge_vector_feature import Agen
 LABEL_THRESH = 0.3
 
 _SEVERITY_TARGETS = {
-    "mild": {"ttc_peak": 3.5, "ttc_half_width": 1.0},
-    "moderate": {"ttc_peak": 2.5, "ttc_half_width": 0.8},
-    "aggressive": {"ttc_peak": 1.6, "ttc_half_width": 0.6},
+    "mild": {"ttc_peak": 3.4, "ttc_half_width": 1.45, "gate_thresh": 0.35},
+    "moderate": {"ttc_peak": 2.5, "ttc_half_width": 0.9, "gate_thresh": 0.45},
+    "aggressive": {"ttc_peak": 1.6, "ttc_half_width": 0.65, "gate_thresh": 0.45},
 }
 
 
@@ -84,10 +84,10 @@ class CrossingAlignmentEvaluator:
             ped_metrics = self._score_pedestrian_crossing(ped, ego_speed, target)
             composite = (
                 0.15 * ped_metrics["pedestrian_presence_score"]
-                + 0.20 * ped_metrics["roadside_emergence_score"]
-                + 0.20 * ped_metrics["crossing_direction_score"]
-                + 0.30 * ped_metrics["ego_lane_conflict_score"]
-                + 0.15 * ped_metrics["immediacy_score"]
+                + 0.22 * ped_metrics["roadside_emergence_score"]
+                + 0.18 * ped_metrics["crossing_direction_score"]
+                + 0.28 * ped_metrics["ego_lane_conflict_score"]
+                + 0.17 * ped_metrics["immediacy_score"]
             )
             if composite > best_score:
                 best_score = composite
@@ -95,8 +95,9 @@ class CrossingAlignmentEvaluator:
 
         assert best is not None
 
-        roadside_gate = 1.0 if best["roadside_emergence_score"] >= 0.45 else 0.2
-        conflict_gate = 1.0 if best["ego_lane_conflict_score"] >= 0.45 else 0.2
+        gate_thresh = float(target["gate_thresh"])
+        roadside_gate = 1.0 if best["roadside_emergence_score"] >= gate_thresh else (0.45 if severity == "mild" else 0.2)
+        conflict_gate = 1.0 if best["ego_lane_conflict_score"] >= gate_thresh else (0.50 if severity == "mild" else 0.2)
         total = float(np.clip(best_score * roadside_gate * conflict_gate, 0.0, 1.0))
 
         notes.extend(best.get("notes", []))
@@ -151,36 +152,52 @@ class CrossingAlignmentEvaluator:
 
         pedestrian_presence_score = 1.0
         abs_y = abs(y)
+
         roadside_band_score = self._band_score(abs_y, self.roadside_min_y_m, self.roadside_max_y_m)
         forward_start_score = self._band_score(x, self.forward_min_x_m, self.forward_max_x_m)
-        roadside_emergence_score = 0.6 * roadside_band_score + 0.4 * forward_start_score
+        roadside_emergence_score = 0.55 * roadside_band_score + 0.45 * forward_start_score
 
         total_speed = max(1e-3, abs(vx) + abs(vy))
         lateral_ratio = abs(vy) / total_speed
         toward_center = 1.0 if (y > 0.0 and vy < 0.0) or (y < 0.0 and vy > 0.0) else 0.0
-        crossing_direction_score = np.clip(0.7 * lateral_ratio + 0.3 * toward_center, 0.0, 1.0)
+        crossing_direction_score = float(np.clip(0.7 * lateral_ratio + 0.3 * toward_center, 0.0, 1.0))
 
         in_lane = np.abs(future_y) <= self.lane_half_width_m
         in_conflict_x = (future_x >= self.conflict_x_min_m) & (future_x <= self.conflict_x_max_m)
         enters_conflict = in_lane & in_conflict_x
-        ego_lane_conflict_score = 1.0 if np.any(enters_conflict) else 0.0
+        if np.any(enters_conflict):
+            ego_lane_conflict_score = 1.0
+        else:
+            lane_dist = np.maximum(np.abs(future_y) - self.lane_half_width_m, 0.0)
+            x_dist = np.minimum(
+                np.abs(future_x - self.conflict_x_min_m),
+                np.abs(future_x - self.conflict_x_max_m),
+            )
+            soft_lane = float(np.clip(1.0 - np.min(lane_dist) / 2.5, 0.0, 1.0))
+            soft_x = float(np.clip(1.0 - np.min(x_dist) / 6.0, 0.0, 1.0))
+            ego_lane_conflict_score = 0.65 * soft_lane + 0.35 * soft_x
 
         if np.any(enters_conflict):
             t_enter = float(times[np.argmax(enters_conflict)])
-            immediacy_score = self._triangular_score(t_enter, peak=target["ttc_peak"], half_width=target["ttc_half_width"])
+            immediacy_score = self._triangular_score(
+                t_enter,
+                peak=target["ttc_peak"],
+                half_width=target["ttc_half_width"],
+            )
         else:
             dist_to_lane = np.maximum(np.abs(future_y) - self.lane_half_width_m, 0.0)
             min_dist = float(np.min(dist_to_lane))
-            immediacy_score = np.clip(1.0 - min_dist / 4.0, 0.0, 0.4)
+            fallback_cap = 0.55 if target["gate_thresh"] < 0.4 else 0.4
+            immediacy_score = float(np.clip(1.0 - min_dist / 3.2, 0.0, fallback_cap))
 
         notes: List[str] = []
-        if roadside_emergence_score < 0.45:
+        if roadside_emergence_score < 0.40:
             notes.append("pedestrian is not clearly starting from roadside region")
-        if crossing_direction_score < 0.45:
+        if crossing_direction_score < 0.40:
             notes.append("pedestrian motion is not clearly lateral crossing")
-        if ego_lane_conflict_score < 0.45:
-            notes.append("predicted pedestrian path does not enter ego lane conflict zone ahead")
-        if immediacy_score < 0.35:
+        if ego_lane_conflict_score < 0.40:
+            notes.append("predicted pedestrian path does not sufficiently approach ego lane conflict zone ahead")
+        if immediacy_score < 0.30:
             notes.append("crossing severity / TTC does not match the requested tier")
 
         return {

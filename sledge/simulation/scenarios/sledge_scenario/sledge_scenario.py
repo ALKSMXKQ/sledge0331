@@ -24,7 +24,7 @@ from nuplan.common.maps.maps_datatypes import (
 )
 
 from sledge.simulation.maps.sledge_map.sledge_map import SledgeMap
-from sledge.autoencoder.preprocessing.features.sledge_vector_feature import SledgeVector
+from sledge.autoencoder.preprocessing.features.sledge_vector_feature import SledgeVector, EgoIndex
 from sledge.simulation.scenarios.sledge_scenario.sledge_scenario_utils import (
     project_sledge_vector,
     sledge_vector_to_detection_tracks,
@@ -44,7 +44,6 @@ class SledgeScenario(AbstractScenario):
 
     def __init__(self, data_root: Path) -> None:
         """ """
-
         self._data_root = data_root
         self._initial_lidar_token = data_root.parent.name
         self._sledge_vector: SledgeVector = FeatureCachePickle().load_computed_feature_from_folder(
@@ -68,7 +67,7 @@ class SledgeScenario(AbstractScenario):
 
         self._route_roadblock_ids, self._route_path = get_route(self._map_api)
 
-    def __reduce__(self) -> Tuple[Type[SledgeScenario], Tuple[Any, ...]]:
+    def __reduce__(self) -> Tuple[Type["SledgeScenario"], Tuple[Any, ...]]:
         """
         Hints on how to reconstruct the object when pickling.
         :return: Object type and constructor arguments to be used.
@@ -85,6 +84,10 @@ class SledgeScenario(AbstractScenario):
         flip_iteration_interval = int(TRAFFIC_LIGHT_FLIP / self._future_sampling.interval_length)
         segment = iteration // flip_iteration_interval
         return segment % 2 == 1
+
+    def _flatten_ego_states(self) -> np.ndarray:
+        """Flatten ego states to 1D for robust downstream indexing."""
+        return np.asarray(self._sledge_vector.ego.states, dtype=np.float32).reshape(-1)
 
     @property
     def ego_vehicle_parameters(self) -> VehicleParameters:
@@ -146,7 +149,6 @@ class SledgeScenario(AbstractScenario):
 
     def get_route_roadblock_ids(self) -> List[str]:
         """Inherited, see superclass."""
-
         roadblock_ids = self._route_roadblock_ids
         return cast(List[str], roadblock_ids)
 
@@ -166,12 +168,25 @@ class SledgeScenario(AbstractScenario):
     def get_ego_state_at_iteration(self, iteration: int) -> EgoState:
         """Inherited, see superclass."""
         initial_distance = self._route_path.project(Point(0, 0))
-
         distance_per_iteration = ROUTE_LENGTH / self._future_sampling.num_poses
 
         center = self._route_path.interpolate([initial_distance + distance_per_iteration * iteration])[0]
-        center_velocity_2d = StateVector2D(float(self._sledge_vector.ego.states), 0)
-        center_acceleration_2d = StateVector2D(0, 0)
+
+        ego_states = self._flatten_ego_states()
+        if ego_states.size >= EgoIndex.size():
+            vx = float(ego_states[EgoIndex.VELOCITY_X])
+            vy = float(ego_states[EgoIndex.VELOCITY_Y])
+            ax = float(ego_states[EgoIndex.ACCELERATION_X])
+            ay = float(ego_states[EgoIndex.ACCELERATION_Y])
+        else:
+            # fallback for malformed/short ego arrays
+            vx = float(ego_states[0]) if ego_states.size > 0 else 0.0
+            vy = float(ego_states[1]) if ego_states.size > 1 else 0.0
+            ax = float(ego_states[2]) if ego_states.size > 2 else 0.0
+            ay = float(ego_states[3]) if ego_states.size > 3 else 0.0
+
+        center_velocity_2d = StateVector2D(vx, vy)
+        center_acceleration_2d = StateVector2D(ax, ay)
 
         # project ego with constant velocity and heading
         time_point = self.get_time_point(iteration)
@@ -287,7 +302,6 @@ class SledgeScenario(AbstractScenario):
 
     def get_traffic_light_status_at_iteration(self, iteration: int) -> Generator[TrafficLightStatusData, None, None]:
         """Inherited, see superclass."""
-
         flip_traffic_lights = self._is_iteration_flipped(iteration)
 
         def _get_status_type(status_type: TrafficLightStatusType) -> TrafficLightStatusType:
@@ -332,4 +346,4 @@ class SledgeScenario(AbstractScenario):
 
     def get_scenario_tokens(self) -> List[str]:
         """Return the list of lidarpc tokens from the DB that are contained in the scenario."""
-        raise NotImplementedErro
+        raise NotImplementedError
